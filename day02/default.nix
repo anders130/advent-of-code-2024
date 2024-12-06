@@ -1,9 +1,17 @@
 {pkgs ? import ../locked.nix}: let
     lib = pkgs.lib;
 
-    inherit (builtins) map head tail all;
+    inherit (builtins) map head tail all any length;
     inherit (lib.strings) trim splitString toInt;
-    inherit (lib.lists) zipListsWith last count;
+    inherit (lib.lists) zipListsWith last count sublist imap0;
+
+    prepareInput = text: text
+        |> trim
+        |> splitString "\n"
+        |> map (row: row
+            |> splitString " "
+            |> map toInt
+        );
 
     abs = x: if x < 0 then -x else x;
 
@@ -19,15 +27,22 @@
         inRange pairs && (allIncreasing pairs || allDecreasing pairs);
 
     part0 = text: text
-        |> trim
-        |> splitString "\n"
-        |> map (row: row
-            |> splitString " "
-            |> map toInt
-        )
+        |> prepareInput
         |> count isSafe;
 
-    part1 = text: "TODO P2";
+    isSafe2 = list: let
+        removeAt = index: list: sublist 0 index list ++ sublist (index + 1) (length list) list;
+    in
+        list
+        |> imap0 (i: _: list
+            |> removeAt i
+            |> isSafe
+        )
+        |> any (x: x == true);
+
+    part1 = text: text
+        |> prepareInput
+        |> count isSafe2;
 
     solve = filePath: let
         text = builtins.readFile filePath;
