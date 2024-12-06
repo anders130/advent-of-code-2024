@@ -1,22 +1,18 @@
 {pkgs ? import ../locked.nix}: let
     lib = pkgs.lib;
 
-    part0 = {
-        text,
-        filePath,
-    }: "TODO P1";
+    inherit (builtins) filter length genList elemAt sort lessThan map foldl';
+    inherit (lib) mod strings lists;
 
-    part1 = {
-        text,
-        filePath,
-    }: "TODO P2";
+    part0 = text: "TODO P1";
+
+    part1 = text: "TODO P2";
 
     solve = filePath: let
         text = builtins.readFile filePath;
-        attrs = {inherit text filePath;};
     in {
-        "0" = part0 attrs;
-        "1" = part1 attrs;
+        "0" = part0 text;
+        "1" = part1 text;
     };
 in {
     example = solve ./in.example;
