@@ -1,51 +1,37 @@
 {pkgs ? import ../locked.nix}: let
     lib = pkgs.lib;
 
-    inherit (builtins) filter length genList elemAt map head tail groupBy attrValues readFile all elem foldl' listToAttrs;
+    inherit (builtins) filter length genList elemAt map head tail readFile all elem foldl';
     inherit (lib.strings) trim splitString toInt;
-    inherit (lib.lists) imap0 last flatten take zipListsWith sublist sort;
-    inherit (lib) filterAttrs;
+    inherit (lib.lists) last flatten take zipListsWith;
 
     isCorrect = rules: first: rest: rules
         |> filter (rule: elemAt rule 0 == first)
         |> map (rule: elemAt rule 1)
-        |> (r: all (item: elem item r) rest)
-    ;
+        |> (r: all (item: elem item r) rest);
 
     isCorrectOrder = rules: list: let
         recurse = rules: list: let
             first = head list;
             rest = tail list;
-
             firstIsCorrect = isCorrect rules first rest;
         in
             if rest == [] then firstIsCorrect
             else if firstIsCorrect then recurse rules rest
-            else false
-        ;
+            else false;
     in
-        recurse rules list
-    ;
+        recurse rules list;
 
-    getMiddle = list: let
-        len = length list - 1;
-        middle = len / 2;
-    in list
-        |> (l: elemAt l middle)
-    ;
-
-    mkEvaluatedList = useRules: text: text
+    prepareInput = useRules: text: text
         |> trim
         |> splitString "\n\n"
         |> (input: let
             rules = head input
                 |> splitString "\n"
-                |> map (splitString "|")
-            ;
+                |> map (splitString "|");
             pageNumbers = last input
                 |> splitString "\n"
-                |> map (splitString ",")
-            ;
+                |> map (splitString ",");
         in
             pageNumbers
             |> map (isCorrectOrder rules)
@@ -53,51 +39,53 @@
             |> useRules rules
         );
 
+    getMiddle = list: let
+        len = length list - 1;
+    in (l: elemAt l (len / 2)) list;
+
     part0 = text: text
-        |> mkEvaluatedList (rules: list: list)
+        |> prepareInput (rules: list: list)
         |> filter (x: x.correct)
         |> map (x: x.list)
         |> map getMiddle
         |> map toInt
-        |> foldl' (a: b: a + b) 0
-    ;
+        |> foldl' (a: b: a + b) 0;
+
+    swap = indexA: indexB: list: list
+        |> length
+        |> genList (i:
+            if i == indexA then elemAt list indexB
+            else if i == indexB then elemAt list indexA
+            else elemAt list i
+        );
 
     sortByRules = rules: list: let
         recurse = rules: list: let
-            firstIsCorrect = isCorrect rules (head list) (tail list);
-            swap = indexA: indexB: list: list
-                |> length
-                |> genList (i:
-                    if i == indexA then elemAt list indexB
-                    else if i == indexB then elemAt list indexA
-                    else elemAt list i
-                );
+            rest = tail list;
+            first = head list;
+            firstIsCorrect = isCorrect rules first rest;
         in
-            lib.debug.traceSeq {inherit firstIsCorrect list;}
-            (
             if firstIsCorrect then
-                list
+                if rest == [] then list # all were correct
+                else [first] ++ recurse rules rest # first was correct, check the rest
             else
-                swap 0 1 list
-        )
+                genList (i: swap 0 i list) (length list) # swap first with every item
+                |> filter (l: isCorrect rules (head l) (tail l)) # filter out incorrect lists
+                |> take 1
+                |> flatten
+                |> recurse rules # check the rest
         ;
-    in
-        lib.debug.traceSeq {inherit list;} (
-        recurse rules list
-            )
-    ;
+    in recurse rules list;
 
-    part1 = text: mkEvaluatedList
+    part1 = text: prepareInput
         (rules: list: list
             |> filter (x: !x.correct)
             |> map (x: x.list)
-            |> take 1
             |> map (sortByRules rules)
-            # |> map (map toInt)
-            # |> map (sort (a: b: a > b))
-            # |> map (isCorrectOrder rules)
-        ) text
-    ;
+            |> map getMiddle
+            |> map toInt
+            |> foldl' (a: b: a + b) 0
+        ) text;
 
     solve = filePath: let
         text = readFile filePath;
